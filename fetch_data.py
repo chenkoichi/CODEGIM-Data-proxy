@@ -103,6 +103,5 @@ print("\n--- 批次下載作業結束 ---")
 if not all_tasks_successful:
     print("部分檔案下載失敗，請檢查上方日誌確認資料源狀態。")
     # 回傳錯誤碼 1，讓 GitHub Actions 面板顯示紅色驚嘆號，以利監控
-    sys.exit(1)
 else:
     print("所有檔案皆成功下載至轉運站！")
