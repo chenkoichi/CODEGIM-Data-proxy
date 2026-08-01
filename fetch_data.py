@@ -3,58 +3,106 @@ import urllib.error
 import datetime
 import sys
 
-# 1. 取得前一日的 UTC 時間，並計算年份與年積日 (DOY)
+# ==========================================
+# 1. 時間參數計算 (以取得前一日 UTC 時間為準)
+# ==========================================
 today_utc = datetime.datetime.utcnow()
 yesterday_utc = today_utc - datetime.timedelta(days=1)
 
-yyyy = yesterday_utc.strftime("%Y")
-doy = yesterday_utc.strftime("%j")
+yyyy = yesterday_utc.strftime("%Y")  # 4碼年份 (ex: 2026)
+yy = yesterday_utc.strftime("%y")    # 2碼年份 (ex: 26)
+mm = yesterday_utc.strftime("%m")    # 2碼月份 (ex: 07)
+doy = yesterday_utc.strftime("%j")   # 3碼年積日 (ex: 209)
 
-# 2. 組合 FIN (最終版) 與 RAP (快速版) 的檔名
-gimfn_fin = f"COD0OPSFIN_{yyyy}{doy}0000_01D_01H_GIM.INX.gz"
-gimfn_rap = f"COD0OPSRAP_{yyyy}{doy}0000_01D_01H_GIM.INX.gz"
-
-# 3. 建立下載優先清單 (完全對應 MATLAB 的 fallback 邏輯)
-download_list = [
-    # 優先嘗試：FIN 檔案 (位於年份資料夾下)
-    f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/{gimfn_fin}",
-    
-    # 備援嘗試：RAP 檔案 (位於 CODE 根目錄下)
-    f"https://www.aiub.unibe.ch/download/CODE/{gimfn_rap}"
+# ==========================================
+# 2. 定義多檔案下載任務清單
+#    每個字典代表一個檔案的下載任務，包含儲存檔名與網址備援清單
+# ==========================================
+download_tasks = [
+    {
+        "name": "GIM (電離層網格)",
+        "save_path": "latest_GIM.inx.gz",
+        "url_list": [
+            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_01H_GIM.INX.gz",
+            f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_01H_GIM.INX.gz"
+        ]
+    },
+    {
+        "name": "SP3 (精密軌道)",
+        "save_path": "latest_ORB.sp3.gz",
+        "url_list": [
+            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz",
+            f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz"
+        ]
+    },
+    {
+        "name": "P1P2 (DCB 儀器偏差)",
+        "save_path": "latest_P1P2.DCB.Z",
+        "url_list": [
+            # 注意：CODE 的 DCB 傳統命名格式可能是月檔，若您使用 RINEX3 長檔名格式 (BIA檔)，請在此替換網址
+            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}.DCB.Z",
+            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}_ALL.DCB.Z"
+        ]
+    },
+    {
+        "name": "P1C1 (DCB 儀器偏差)",
+        "save_path": "latest_P1C1.DCB.Z",
+        "url_list": [
+            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}.DCB.Z",
+            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}_ALL.DCB.Z"
+        ]
+    },
+    {
+        "name": "Dst Index (地磁指數)",
+        "save_path": "dst_index.html",
+        "url_list": [
+            # Dst 通常從京都大學 WDC 獲取即時/快報資料
+            f"https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/{yyyy}{mm}/dst_index.html"
+        ]
+    }
 ]
 
-# 設定 GitHub 轉運站的統一儲存檔名
-save_path = "latest_GIM.inx.gz"
-download_success = False
-
-# 設定 User-Agent 偽裝與 MATLAB 腳本保持一致，避免被伺服器阻擋
+# ==========================================
+# 3. 執行批次下載與錯誤控管
+# ==========================================
 req_headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
 }
 
-print(f"開始尋找並下載 {yyyy} 年 DOY {doy} 的 GIM 檔案...")
+all_tasks_successful = True
+print(f"--- 開始執行 {yyyy} 年 DOY {doy} 的觀測資料批次下載 ---")
 
-# 4. 執行下載迴圈
-for url in download_list:
-    print(f" -> 嘗試下載: {url}")
-    try:
-        # 建立帶有標頭的請求
-        req = urllib.request.Request(url, headers=req_headers)
-        
-        # 執行下載，設定 Timeout 為 30 秒
-        with urllib.request.urlopen(req, timeout=30) as response, open(save_path, 'wb') as out_file:
-            out_file.write(response.read())
+for task in download_tasks:
+    print(f"\n[{task['name']}] 準備下載，目標儲存為: {task['save_path']}")
+    task_success = False
+    
+    for url in task["url_list"]:
+        print(f" -> 嘗試連線: {url}")
+        try:
+            req = urllib.request.Request(url, headers=req_headers)
+            with urllib.request.urlopen(req, timeout=30) as response, open(task['save_path'], 'wb') as out_file:
+                out_file.write(response.read())
+                
+            print("   [成功] 檔案下載完畢！")
+            task_success = True
+            break  # 成功取得檔案，跳出此任務的備援迴圈，進入下一個檔案任務
             
-        print("   [成功] 檔案下載完畢！")
-        download_success = True
-        break  # 成功取得檔案，立即跳出迴圈
+        except urllib.error.URLError as e:
+            print(f"   [失敗] 無法取得此檔案: {e.reason}")
+        except Exception as e:
+            print(f"   [失敗] 發生未預期的錯誤: {e}")
+            
+    if not task_success:
+        print(f"   [警告] {task['name']} 的所有網址皆下載失敗！")
+        all_tasks_successful = False
 
-    except urllib.error.URLError as e:
-        print(f"   [失敗] 無法取得此檔案: {e.reason}")
-    except Exception as e:
-        print(f"   [失敗] 發生未預期的錯誤: {e}")
-
-# 5. 例外處理：若所有路徑皆失敗
-if not download_success:
-    print("所有下載嘗試皆失敗，無法取得 FIN 或 RAP 檔案！請確認該 DOY 日期是否已有資料。")
-    sys.exit(1) # 強制回傳錯誤碼 1，讓 GitHub Actions 面板亮紅燈，方便你第一時間察覺異常
+# ==========================================
+# 4. 總結與狀態回報
+# ==========================================
+print("\n--- 批次下載作業結束 ---")
+if not all_tasks_successful:
+    print("部分檔案下載失敗，請檢查上方日誌確認資料源狀態。")
+    # 回傳錯誤碼 1，讓 GitHub Actions 面板顯示紅色驚嘆號，以利監控
+    sys.exit(1)
+else:
+    print("所有檔案皆成功下載至轉運站！")
