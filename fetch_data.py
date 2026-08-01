@@ -7,7 +7,7 @@ import glob
 # ==========================================
 # 0. 清理舊檔案，確保轉運站只保留當次最新資料
 # ==========================================
-# 避免發生昨日是壓縮檔(.DCB.Z)，今日是非壓縮檔(.DCB)，導致兩者同時殘留的問題
+# 刪除前一次留下來的 latest_ 系列檔案與 dst_index.html
 for old_file in glob.glob("latest_*") + glob.glob("dst_index.html"):
     try:
         os.remove(old_file)
@@ -37,7 +37,7 @@ else:
     print(f"無參數傳入，自動下載前一日 {yyyy} 年 DOY {doy} 的資料。")
 
 # ==========================================
-# 2. 定義多檔案下載任務清單 (完美鏡像 MATLAB 的 Fallback 邏輯)
+# 2. 定義多檔案下載任務清單 (完全對應 MATLAB 腳本的命名規則)
 # ==========================================
 download_tasks = [
     {
@@ -51,16 +51,13 @@ download_tasks = [
         "name": "SP3 (精密軌道)",
         "targets": [
             {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz", "save_path": "latest_ORB.sp3.gz"},
-            # 依據 MATLAB：RAP 的 SP3 為非壓縮檔
             {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_05M_ORB.SP3", "save_path": "latest_ORB.sp3"}
         ]
     },
     {
         "name": "P1P2 (DCB 儀器偏差)",
         "targets": [
-            # 月份資料 (壓縮)
             {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}.DCB.Z", "save_path": "latest_P1P2.DCB.Z"},
-            # 即時資料 (非壓縮)
             {"url": f"https://www.aiub.unibe.ch/download/CODE/P1P2.DCB", "save_path": "latest_P1P2.DCB"}
         ]
     },
@@ -74,7 +71,6 @@ download_tasks = [
     {
         "name": "Dst Index (地磁指數)",
         "targets": [
-            # 依據 MATLAB：依序嘗試 final, provisional, realtime
             {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_final/{yyyy}{mm}/index.html", "save_path": "dst_index.html"},
             {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_provisional/{yyyy}{mm}/index.html", "save_path": "dst_index.html"},
             {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/{yyyy}{mm}/index.html", "save_path": "dst_index.html"}
