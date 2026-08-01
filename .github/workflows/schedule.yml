@@ -1,0 +1,36 @@
+name: Daily Fetch AIUB Data
+
+# 設定觸發條件
+on:
+  schedule:
+    # 使用 Cron 語法設定排程。
+    # 伺服器是 UTC 時間，設定 07:30 等於台灣時間下午 15:30
+    - cron: '30 7 * * *'
+  workflow_dispatch: # 保留這個選項，讓我們可以隨時手動點擊執行
+
+# 賦予 GitHub 機器人寫入檔案的權限
+permissions:
+  contents: write
+
+jobs:
+  download-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢出儲存庫程式碼
+        uses: actions/checkout@v3
+
+      - name: 建立 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: 執行 Python 下載腳本
+        run: python fetch_data.py
+
+      - name: 將新資料提交並推回儲存庫
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add latest_GIM.inx.gz
+          git commit -m "Auto-update daily GIM data" || echo "No changes to commit"
+          git push
