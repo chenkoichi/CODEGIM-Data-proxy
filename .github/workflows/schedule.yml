@@ -1,14 +1,10 @@
 name: Daily Fetch AIUB Data
 
-# 設定觸發條件
 on:
   schedule:
-    # 使用 Cron 語法設定排程。
-    # 伺服器是 UTC 時間，設定 07:30 等於台灣時間下午 15:30
     - cron: '30 7 * * *'
-  workflow_dispatch: # 保留這個選項，讓我們可以隨時手動點擊執行
+  workflow_dispatch:
 
-# 賦予 GitHub 機器人寫入檔案的權限
 permissions:
   contents: write
 
@@ -17,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 檢出儲存庫程式碼
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # <-- 這裡更新為 v4
 
       - name: 建立 Python 環境
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # <-- 這裡更新為 v5
         with:
           python-version: '3.x'
 
