@@ -1,9 +1,16 @@
-name: Daily Fetch AIUB Data
+name: Fetch AIUB Data (API Trigger)
 
 on:
-  schedule:
-    - cron: '30 7 * * *'
   workflow_dispatch:
+    inputs:
+      target_year:
+        description: '指定年份 (如 2026)'
+        required: true
+        type: string
+      target_doy:
+        description: '指定年積日 (如 212)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,12 +18,15 @@ permissions:
 jobs:
   download-and-commit:
     runs-on: ubuntu-latest
+    env:
+      TARGET_YEAR: ${{ github.event.inputs.target_year }}
+      TARGET_DOY: ${{ github.event.inputs.target_doy }}
     steps:
       - name: 檢出儲存庫程式碼
-        uses: actions/checkout@v4  # <-- 這裡更新為 v4
+        uses: actions/checkout@v4
 
       - name: 建立 Python 環境
-        uses: actions/setup-python@v5 # <-- 這裡更新為 v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
@@ -28,5 +38,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Auto-update daily GIM data" || echo "No changes to commit"
+          git commit -m "Auto-update observation data via MATLAB API" || echo "No changes to commit"
           git push
