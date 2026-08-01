@@ -5,14 +5,15 @@ import os
 import glob
 
 # ==========================================
-# 0. 清理舊檔案，確保轉運站只保留當次最新資料
+# 0. 清理舊檔案，確保轉運站不囤積歷史資料
 # ==========================================
-# 刪除前一次留下來的 latest_ 系列檔案與 dst_index.html
-for old_file in glob.glob("latest_*") + glob.glob("dst_index.html"):
-    try:
-        os.remove(old_file)
-    except OSError:
-        pass
+cleanup_patterns = ["*.gz", "*.Z", "*.sp3", "*.DCB", "*.html"]
+for pattern in cleanup_patterns:
+    for old_file in glob.glob(pattern):
+        try:
+            os.remove(old_file)
+        except OSError:
+            pass
 
 # ==========================================
 # 1. 接收 MATLAB 傳遞的參數
@@ -37,43 +38,43 @@ else:
     print(f"無參數傳入，自動下載前一日 {yyyy} 年 DOY {doy} 的資料。")
 
 # ==========================================
-# 2. 定義多檔案下載任務清單 (完全對應 MATLAB 腳本的命名規則)
+# 2. 定義多檔案下載任務清單 (產出帶有日期的專屬檔名)
 # ==========================================
 download_tasks = [
     {
         "name": "GIM (電離層網格)",
         "targets": [
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_01H_GIM.INX.gz", "save_path": "latest_GIM.inx.gz"},
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_01H_GIM.INX.gz", "save_path": "latest_GIM.inx.gz"}
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_01H_GIM.INX.gz", "save_path": f"COD0OPS_{yyyy}{doy}_GIM.INX.gz"},
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_01H_GIM.INX.gz", "save_path": f"COD0OPS_{yyyy}{doy}_GIM.INX.gz"}
         ]
     },
     {
         "name": "SP3 (精密軌道)",
         "targets": [
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz", "save_path": "latest_ORB.sp3.gz"},
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_05M_ORB.SP3", "save_path": "latest_ORB.sp3"}
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz", "save_path": f"COD0OPS_{yyyy}{doy}_ORB.SP3.gz"},
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_05M_ORB.SP3", "save_path": f"COD0OPS_{yyyy}{doy}_ORB.SP3"}
         ]
     },
     {
         "name": "P1P2 (DCB 儀器偏差)",
         "targets": [
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}.DCB.Z", "save_path": "latest_P1P2.DCB.Z"},
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/P1P2.DCB", "save_path": "latest_P1P2.DCB"}
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}.DCB.Z", "save_path": f"P1P2_{yyyy}{doy}.DCB.Z"},
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/P1P2.DCB", "save_path": f"P1P2_{yyyy}{doy}.DCB"}
         ]
     },
     {
         "name": "P1C1 (DCB 儀器偏差)",
         "targets": [
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}.DCB.Z", "save_path": "latest_P1C1.DCB.Z"},
-            {"url": f"https://www.aiub.unibe.ch/download/CODE/P1C1.DCB", "save_path": "latest_P1C1.DCB"}
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}.DCB.Z", "save_path": f"P1C1_{yyyy}{doy}.DCB.Z"},
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/P1C1.DCB", "save_path": f"P1C1_{yyyy}{doy}.DCB"}
         ]
     },
     {
         "name": "Dst Index (地磁指數)",
         "targets": [
-            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_final/{yyyy}{mm}/index.html", "save_path": "dst_index.html"},
-            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_provisional/{yyyy}{mm}/index.html", "save_path": "dst_index.html"},
-            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/{yyyy}{mm}/index.html", "save_path": "dst_index.html"}
+            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_final/{yyyy}{mm}/index.html", "save_path": f"dst_index_{yyyy}{doy}.html"},
+            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_provisional/{yyyy}{mm}/index.html", "save_path": f"dst_index_{yyyy}{doy}.html"},
+            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/{yyyy}{mm}/index.html", "save_path": f"dst_index_{yyyy}{doy}.html"}
         ]
     }
 ]
