@@ -2,6 +2,17 @@ import urllib.request
 import urllib.error
 import datetime
 import os
+import glob
+
+# ==========================================
+# 0. 清理舊檔案，確保轉運站只保留當次最新資料
+# ==========================================
+# 避免發生昨日是壓縮檔(.DCB.Z)，今日是非壓縮檔(.DCB)，導致兩者同時殘留的問題
+for old_file in glob.glob("latest_*") + glob.glob("dst_index.html"):
+    try:
+        os.remove(old_file)
+    except OSError:
+        pass
 
 # ==========================================
 # 1. 接收 MATLAB 傳遞的參數
@@ -17,7 +28,6 @@ if input_year and input_doy:
     mm = target_date.strftime("%m")
     print(f"啟動 API 觸發模式：指定下載 {yyyy} 年 DOY {doy} 的資料。")
 else:
-    # 預防性備案：若無參數傳入，則預設抓取前一日資料
     today_utc = datetime.datetime.utcnow()
     yesterday_utc = today_utc - datetime.timedelta(days=1)
     yyyy = yesterday_utc.strftime("%Y")
@@ -27,46 +37,47 @@ else:
     print(f"無參數傳入，自動下載前一日 {yyyy} 年 DOY {doy} 的資料。")
 
 # ==========================================
-# 2. 定義多檔案下載任務清單
+# 2. 定義多檔案下載任務清單 (完美鏡像 MATLAB 的 Fallback 邏輯)
 # ==========================================
 download_tasks = [
     {
         "name": "GIM (電離層網格)",
-        "save_path": "latest_GIM.inx.gz",
-        "url_list": [
-            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_01H_GIM.INX.gz",
-            f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_01H_GIM.INX.gz"
+        "targets": [
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_01H_GIM.INX.gz", "save_path": "latest_GIM.inx.gz"},
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_01H_GIM.INX.gz", "save_path": "latest_GIM.inx.gz"}
         ]
     },
     {
         "name": "SP3 (精密軌道)",
-        "save_path": "latest_ORB.sp3.gz",
-        "url_list": [
-            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz",
-            f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz"
+        "targets": [
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/COD0OPSFIN_{yyyy}{doy}0000_01D_05M_ORB.SP3.gz", "save_path": "latest_ORB.sp3.gz"},
+            # 依據 MATLAB：RAP 的 SP3 為非壓縮檔
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/COD0OPSRAP_{yyyy}{doy}0000_01D_05M_ORB.SP3", "save_path": "latest_ORB.sp3"}
         ]
     },
     {
         "name": "P1P2 (DCB 儀器偏差)",
-        "save_path": "latest_P1P2.DCB.Z",
-        "url_list": [
-            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}.DCB.Z",
-            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}_ALL.DCB.Z"
+        "targets": [
+            # 月份資料 (壓縮)
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1P2{yy}{mm}.DCB.Z", "save_path": "latest_P1P2.DCB.Z"},
+            # 即時資料 (非壓縮)
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/P1P2.DCB", "save_path": "latest_P1P2.DCB"}
         ]
     },
     {
         "name": "P1C1 (DCB 儀器偏差)",
-        "save_path": "latest_P1C1.DCB.Z",
-        "url_list": [
-            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}.DCB.Z",
-            f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}_ALL.DCB.Z"
+        "targets": [
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/{yyyy}/P1C1{yy}{mm}.DCB.Z", "save_path": "latest_P1C1.DCB.Z"},
+            {"url": f"https://www.aiub.unibe.ch/download/CODE/P1C1.DCB", "save_path": "latest_P1C1.DCB"}
         ]
     },
     {
         "name": "Dst Index (地磁指數)",
-        "save_path": "dst_index.html",
-        "url_list": [
-            f"https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/{yyyy}{mm}/dst_index.html"
+        "targets": [
+            # 依據 MATLAB：依序嘗試 final, provisional, realtime
+            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_final/{yyyy}{mm}/index.html", "save_path": "dst_index.html"},
+            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_provisional/{yyyy}{mm}/index.html", "save_path": "dst_index.html"},
+            {"url": f"https://wdc.kugi.kyoto-u.ac.jp/dst_realtime/{yyyy}{mm}/index.html", "save_path": "dst_index.html"}
         ]
     }
 ]
@@ -82,16 +93,18 @@ all_tasks_successful = True
 print(f"--- 開始執行 {yyyy} 年 DOY {doy} 的觀測資料批次下載 ---")
 
 for task in download_tasks:
-    print(f"\n[{task['name']}] 準備下載，目標儲存為: {task['save_path']}")
+    print(f"\n[{task['name']}] 準備下載...")
     task_success = False
     
-    for url in task["url_list"]:
+    for target in task["targets"]:
+        url = target["url"]
+        save_path = target["save_path"]
         print(f" -> 嘗試連線: {url}")
         try:
             req = urllib.request.Request(url, headers=req_headers)
-            with urllib.request.urlopen(req, timeout=30) as response, open(task['save_path'], 'wb') as out_file:
+            with urllib.request.urlopen(req, timeout=30) as response, open(save_path, 'wb') as out_file:
                 out_file.write(response.read())
-            print("   [成功] 檔案下載完畢！")
+            print(f"   [成功] 檔案已下載並儲存為 {save_path}！")
             task_success = True
             break
         except urllib.error.URLError as e:
