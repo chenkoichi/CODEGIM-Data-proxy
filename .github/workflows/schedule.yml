@@ -8,9 +8,14 @@ on:
         required: true
         type: string
       target_doy:
-        description: '指定年積日 (如 212)'
+        description: '指定年積日 (如 203)'
         required: true
         type: string
+      target_types:
+        description: '指定下載類型 (逗號分隔，如 GIM,DST)'
+        required: false
+        type: string
+        default: 'ALL'
 
 permissions:
   contents: write
@@ -21,6 +26,7 @@ jobs:
     env:
       TARGET_YEAR: ${{ github.event.inputs.target_year }}
       TARGET_DOY: ${{ github.event.inputs.target_doy }}
+      TARGET_TYPES: ${{ github.event.inputs.target_types }}
     steps:
       - name: 檢出儲存庫程式碼
         uses: actions/checkout@v4
@@ -38,5 +44,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Auto-update observation data via MATLAB API" || echo "No changes to commit"
+          git commit -m "Auto-update observation data" || echo "No changes to commit"
           git push
